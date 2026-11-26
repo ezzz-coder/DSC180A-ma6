@@ -46,3 +46,47 @@ FAILED tests/test_leakage.py::test_no_forbidden_features - AssertionError: fo...
 Effect had it shipped: ridge valid R^2 0.6839 -> 0.9252 (validation only).
 
 Turns to fix: 1 (revert the edit; hook silent afterwards).
+
+## Fault 2: delete `.shift(1)` from `cnt_roll_7`
+
+Change:
+
+```diff
+-    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(7).mean()
++    out["cnt_roll_7"] = out[TARGET].rolling(7).mean()
+```
+
+Hook stderr (fired on the edit):
+
+```
+Leakage tests failed after editing .../src/features.py:
+    def test_rolling_mean_excludes_today(feats):
+        """cnt_roll_7 must be the mean of the 7 calendar days *before* today."""
+        by_date = feats.set_index("dteday")[TARGET]
+        date = feats.dteday.iloc[200]
+        window = [date - pd.Timedelta(days=k) for k in range(1, 8)]
+        if all(d in by_date.index for d in window):
+            expected = sum(by_date[d] for d in window) / 7
+>           assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
+E           assert np.float64(4605.285714285715) == 4724.428571428572 ± 0.00472443
+E             comparison failed
+E             Obtained: 4605.285714285715
+E             Expected: 4724.428571428572 ± 0.00472443
+
+tests/test_leakage.py:57: AssertionError
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.float64(4605.285714285715) == 4724.428571428572 ± 0.00472443
+1 failed, 9 passed in 0.33s
+```
+
+`make test`:
+
+```
+FAILED tests/test_leakage.py::test_rolling_mean_excludes_today - assert np.fl...
+1 failed, 16 passed in 1.92s
+```
+
+Turns to fix: 1.
+
+Caveat: the catching test checks one row (`iloc[200]`) inside an `if`. If
+that row's window ever touched a missing day, the assertion would be skipped
+and the test would pass vacuously. It caught this fault, but only by position.
