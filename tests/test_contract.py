@@ -5,7 +5,16 @@ import pandas as pd
 import pytest
 from sklearn.metrics import r2_score
 
-from src.config import LAG_WARMUP, RAW, RAW_SHA256, TARGET
+from src.config import (
+    FORBIDDEN,
+    LAG_WARMUP,
+    RAW,
+    RAW_FEATURE_COLS,
+    RAW_SHA256,
+    SOURCE_COLS,
+    TARGET,
+    UNUSED_COLS,
+)
 from src.features import build_features, feature_columns, reindex_to_calendar
 from src.ingest import load_raw
 from src.train import MODELS, temporal_split
@@ -30,6 +39,26 @@ def test_raw_file_is_unmodified():
     assert digest == RAW_SHA256, (
         f"{RAW.name} changed: sha256 {digest[:16]}..., expected {RAW_SHA256[:16]}... "
         "Restore it with `git checkout -- data/raw/bike_daily.csv`."
+    )
+
+
+def test_every_raw_column_is_classified(raw, feats):
+    """Every column in the raw CSV must be dteday or sit in exactly one of
+    FORBIDDEN / RAW_FEATURE_COLS / SOURCE_COLS / UNUSED_COLS in src/config.py.
+    A new column in the data fails here until someone decides what it is,
+    instead of feature_columns() picking it up because it happens to be
+    numeric."""
+    classes = [FORBIDDEN, RAW_FEATURE_COLS, SOURCE_COLS, UNUSED_COLS]
+    unclassified = [c for c in raw.columns if c != "dteday" and not any(c in s for s in classes)]
+    assert not unclassified, f"raw columns not classified in src/config.py: {unclassified}"
+
+    overlap = [c for c in raw.columns if sum(c in s for s in classes) > 1]
+    assert not overlap, f"raw columns in more than one class: {overlap}"
+
+    # The raw columns that reach the model must be exactly the declared ones.
+    used_raw = set(feature_columns(feats)) & set(raw.columns)
+    assert used_raw == RAW_FEATURE_COLS, (
+        f"raw columns used as features {sorted(used_raw)} != RAW_FEATURE_COLS {sorted(RAW_FEATURE_COLS)}"
     )
 
 
