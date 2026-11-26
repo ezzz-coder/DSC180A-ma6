@@ -90,3 +90,41 @@ Turns to fix: 1.
 Caveat: the catching test checks one row (`iloc[200]`) inside an `if`. If
 that row's window ever touched a missing day, the assertion would be skipped
 and the test would pass vacuously. It caught this fault, but only by position.
+
+## Fault 3: remove the `raise` in `encode_weather`
+
+Change:
+
+```diff
+     if unknown:
+-        raise ValueError(f"unmapped weather labels: {sorted(unknown)}")
++        pass
+```
+
+Hook stderr: **none. The hook did not fire.**
+
+`make test`:
+
+```
+.................                                                        [100%]
+17 passed in 1.76s
+```
+
+**No test went red.** The raw data contains only GOOD / MISTY / BAD, so the
+unknown-label branch is never exercised. With the fault in place the encoder
+silently maps an unseen label to NaN:
+
+```
+>>> encode_weather(pd.Series(['GOOD', 'STORMY', 'BAD'])).tolist()
+[0.0, nan, 2.0]
+```
+
+and `build_features` would then `dropna()` those days without a word, the
+failure the encoder's docstring warns about. The row-loss test in
+`tests/test_contract.py` would only notice if the data itself contained a new
+label. What would catch it: a unit test in `tests/test_leakage.py` (so the
+hook runs it) that passes a series containing an unknown label to
+`encode_weather` and asserts `ValueError`.
+
+Turns to fix: 1 (restore the `raise`), but only because the agent knew the
+fault was there; nothing in the tooling pointed to it.
