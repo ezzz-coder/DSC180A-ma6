@@ -194,3 +194,18 @@ What would have caught it, in order of strength:
 
 Restored with `git checkout -- data/raw/bike_daily.csv`; sha256 verified as
 `a6bed1577f6e4de5...` afterwards.
+
+**Implemented: option 1.** `RAW_SHA256` in `src/config.py` and
+`test_raw_file_is_unmodified` in `tests/test_contract.py`. Verified against
+two tampered copies held outside `data/raw/` (the test's `RAW` pointed at each):
+
+```
+bike_tampered.csv -> RED: bike_tampered.csv changed: sha256 62d6b6a5e8db3f30..., expected a6bed1577f6e4de5... Restore it with `git checkout -- data/raw/bike_daily.csv`.
+bike_temp.csv -> RED: bike_temp.csv changed: sha256 7b6cb6aa9dab6f55..., expected a6bed1577f6e4de5... Restore it with `git checkout -- data/raw/bike_daily.csv`.
+```
+
+`bike_temp.csv` changes only `temp` on one row, which preserves the
+`casual + registered == cnt` identity: the kind of tamper the rest of the
+suite misses. The test is in `make test`, not in the PostToolUse hook (which
+runs only `tests/test_leakage.py` and only after `Edit`/`Write`), so it
+catches the fault at the next test run, not at the moment of the `cp`.
