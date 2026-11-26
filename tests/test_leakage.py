@@ -57,6 +57,32 @@ def test_rolling_mean_excludes_today(feats):
         assert feats.set_index("dteday").cnt_roll_7[date] == pytest.approx(expected)
 
 
+def test_roll_28_on_known_date(feats):
+    """cnt_roll_28 on 2012-03-15 is the mean of cnt over 2012-02-16..2012-03-14,
+    the 28 calendar days strictly before it. Hand-computed from the raw CSV:
+    those days sum to 115349. Including today (cnt 6192) or dropping the
+    shift(1) gives a different number."""
+    row = feats.set_index("dteday").loc[pd.Timestamp("2012-03-15")]
+    assert row.cnt_roll_28 == pytest.approx(115349 / 28)
+
+
+def test_roll_28_never_spans_the_missing_day(feats):
+    """2011-03-10 is absent from the mirror. Every date whose 28-day window
+    contains it (2011-03-11..2011-04-07) must be dropped, not silently
+    averaged over 27 days or over a row-shifted window."""
+    poisoned = pd.date_range("2011-03-11", "2011-04-07")
+    assert not feats.dteday.isin(poisoned).any()
+    assert pd.Timestamp("2011-04-08") in set(feats.dteday)
+
+
+def test_lag_7_is_seven_calendar_days(feats):
+    """cnt_lag_7 must stay a 7-day lag when LAG_WARMUP grows for longer
+    windows; the two used to share a constant."""
+    by_date = feats.set_index("dteday")[TARGET]
+    date = pd.Timestamp("2012-03-15")
+    assert feats.set_index("dteday").cnt_lag_7[date] == by_date[date - pd.Timedelta(days=7)]
+
+
 def test_no_missing_values(feats):
     assert feats[feature_columns(feats)].isna().sum().sum() == 0
 
