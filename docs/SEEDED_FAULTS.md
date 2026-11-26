@@ -11,6 +11,29 @@ PostToolUse hook (`.claude/hooks/check_leakage.sh`, exit 2) sent back to the
 agent immediately after that edit; it shows only the last 20 lines of pytest.
 "make test" is the full suite run afterwards.
 
+## Exercise 1: the new feature's tests, failing before the feature
+
+Written first, through `/new-feature`, and committed alone as `67b0e82`. Run
+at that commit (checked out in a temporary git worktree), before
+`cnt_roll_28` existed:
+
+```
+$ python -m pytest tests/test_leakage.py -q
+E       AttributeError: 'Series' object has no attribute 'cnt_roll_28'. Did you mean: 'cnt_roll_7'?
+E       AssertionError: assert not np.True_
+E        +  where np.True_ = any()
+[... four lines of pandas Series/DataFrame repr elided ...]
+FAILED tests/test_leakage.py::test_roll_28_on_known_date - AttributeError: 'S...
+FAILED tests/test_leakage.py::test_roll_28_never_spans_the_missing_day - Asse...
+2 failed, 8 passed in 0.55s
+```
+
+Both fail for the right reason: the column does not exist yet, and dates whose
+28-day window spans the missing 2011-03-10 are still present. The third new
+test, `test_lag_7_is_seven_calendar_days`, passes at this commit by design:
+it guards `cnt_lag_7` against the `LAG_WARMUP` change the feature needs.
+`b8d43da` adds the feature, and all of them pass.
+
 ## Fault 1: forbidden column in `feature_columns`
 
 Change:

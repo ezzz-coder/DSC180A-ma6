@@ -20,7 +20,7 @@ were fixed (see DECISIONS.md for every point at which test numbers were seen).
 | baseline_mean | after | -0.6894 | 1877.3 | -1.7717 | 2659.6 |
 | baseline_persistence | after | 0.4507 | 900.6 | 0.5099 | 840.1 |
 | ridge | after | 0.6839 | 777.5 | 0.6239 | 879.3 |
-| hgb | after | 0.2415 | 1296.6 | -0.4600 | 1952.4 |
+| hgb | after | 0.2415 | 1296.6 | -0.46 | 1952.4 |
 
 The mean baseline moves only because dropping January 2011 raises the training
 mean. On identical training rows, `cnt_roll_28` alone moves ridge valid R²
@@ -78,7 +78,7 @@ extrapolating.
 |---|---|---|---|---|---|---|
 | ridge | raw | 0.6839 | 777.5 | -396 | 0.6239 | 879.3 |
 | ridge | ratio | 0.4039 | 1069.0 | -862 | -0.5069 | 1844.7 |
-| hgb | raw | 0.2415 | 1296.6 | -1204 | -0.4600 | 1952.4 |
+| hgb | raw | 0.2415 | 1296.6 | -1204 | -0.46 | 1952.4 |
 | hgb | ratio | 0.6754 | 732.4 | +53 | 0.6392 | 744.2 |
 | persistence | — | 0.4507 | 900.6 | -18 | 0.5099 | 840.1 |
 
