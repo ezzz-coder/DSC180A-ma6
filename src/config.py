@@ -9,6 +9,10 @@ RAW = ROOT / "data" / "raw" / "bike_daily.csv"
 RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
 PROCESSED = ROOT / "data" / "processed" / "features.parquet"
 METRICS = ROOT / "reports" / "metrics.json"
+# Exercise 4 only: `python -m src.train --target ratio` fits ridge and hgb on
+# cnt / RATIO_DENOM and writes here. The committed METRICS stays untransformed.
+METRICS_RATIO = ROOT / "reports" / "metrics_ratio.json"
+RATIO_DENOM = "cnt_roll_28"
 
 # Daily Capital Bikeshare counts (Fanaee-T & Gama). Canonical home:
 #   https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset
