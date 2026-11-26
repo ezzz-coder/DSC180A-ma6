@@ -70,10 +70,14 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Lagged target: past values only. shift(1) is the whole ballgame;
     # without it, cnt_roll_7 would contain today's count. -----------------
-    # If you add a longer lag, raise LAG_WARMUP in src/config.py.
+    # Windows are named literally; LAG_WARMUP in src/config.py must equal
+    # the longest one (the row-loss test in tests/test_contract.py uses it).
     out["cnt_lag_1"] = out[TARGET].shift(1)
-    out["cnt_lag_7"] = out[TARGET].shift(LAG_WARMUP)
-    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(LAG_WARMUP).mean()
+    out["cnt_lag_7"] = out[TARGET].shift(7)
+    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(7).mean()
+    # Four-week level: tracks the 2011->2012 growth trend more steadily
+    # than the 7-day mean. Needs 28 days of history.
+    out["cnt_roll_28"] = out[TARGET].shift(1).rolling(LAG_WARMUP).mean()
 
     return out.dropna().reset_index(drop=True)
 
