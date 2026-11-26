@@ -128,3 +128,69 @@ hook runs it) that passes a series containing an unknown label to
 
 Turns to fix: 1 (restore the `raise`), but only because the agent knew the
 fault was there; nothing in the tooling pointed to it.
+
+## Fault 4: overwrite `data/raw/` with a Bash `cp`
+
+Run by hand from the shell (the agent's own attempt at the `cp` was refused
+by Claude Code's session-level permission check; the repo's
+`.claude/settings.json` only denies `Write`/`Edit` on `data/raw/**`, so
+under the starter's configuration a Bash `cp` is not blocked).
+
+Change: a copy of the raw CSV with Hurricane Sandy's count (2012-10-29, a
+test-set day) altered from 22 to 4000, written with pandas, then
+
+```
+cp "$S/bike_tampered.csv" data/raw/bike_daily.csv
+```
+
+Output:
+
+```
+Sandy before: [22]
+== sha256 after cp
+62d6b6a5e8db3f30b44e407210b533b4bb00980cfe9e17e3ec780fa85dca1945  data/raw/bike_daily.csv
+ M data/raw/bike_daily.csv
+python -m src.ingest
+OK ingest: 728 rows, 2011-01-03 -> 2012-12-31
+python -m src.features
+OK features: 672 rows, 15 features -> features.parquet
+python -m pytest tests/ -q
+....F............                                                        [100%]
+    def test_leakage_identity_holds(feats):
+        """Documents *why* casual and registered are forbidden."""
+>       assert (feats.casual + feats.registered == feats[TARGET]).all()
+E       assert np.False_
+FAILED tests/test_leakage.py::test_leakage_identity_holds - assert np.False_
+1 failed, 16 passed in 1.47s
+== restoring
+a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc  data/raw/bike_daily.csv
+```
+
+Hook stderr: **none.** The PostToolUse hook matches only `Edit|Write`, and
+only paths under `src/`; a Bash command that rewrites `data/raw/` is invisible
+to it. `make data` also passed: `src/ingest.py` only checks required columns
+and a 700-row minimum, and skips the download when the file exists.
+
+A test did go red, but by accident. `test_leakage_identity_holds` exists to
+document why `casual` and `registered` are forbidden, and it failed only
+because this particular edit changed `cnt` without changing its components.
+A tamper that preserved the identity (edit `casual` and `cnt` together, alter
+`temp` or `hum`, drop a BAD-weather day, or swap in the 731-row UCI file with
+its weather codes renamed) would pass all 17 tests and silently change every
+reported number.
+
+What would have caught it, in order of strength:
+
+1. **A checksum test.** Store the expected sha256 of `data/raw/bike_daily.csv`
+   (`a6bed1577f6e4de5...`) in `src/config.py` and assert it in
+   `tests/test_contract.py`. Any byte-level change fails `make test`,
+   whatever was edited and however it got there.
+2. **A PreToolUse hook on `Bash`** that rejects (exit 2) commands writing to
+   `data/raw/` (`cp`, `mv`, `>`, `tee`, `sed -i` ...). This stops the agent
+   before the write instead of after, but pattern-matching shell is
+   bypassable, so it complements the checksum rather than replacing it.
+3. **Filesystem permissions**: `chmod a-w data/raw/bike_daily.csv`. Cheap,
+   but a `cp` run by the owner can still be preceded by a `chmod`.
+
+Restored with `git checkout -- data/raw/bike_daily.csv`; sha256 verified as
+`a6bed1577f6e4de5...` afterwards.
